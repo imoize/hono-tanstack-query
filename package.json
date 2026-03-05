@@ -1,0 +1,92 @@
+{
+  "name": "hono-tanstack-query",
+  "version": "0.0.2",
+  "description": "TanStack Query bindings for Hono typed clients — fully typed, zero boilerplate",
+  "author": "Aadil Shaikh [adilshaikh6572@gmail.com](mailto:adilshaikh6572@gmail.com)",
+  "license": "MIT",
+  "homepage": "https://github.com/adil6572/hono-tanstack-query#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/adil6572/hono-tanstack-query.git"
+  },
+  "bugs": {
+    "url": "https://github.com/adil6572/hono-tanstack-query/issues"
+  },
+  "keywords": [
+    "hono",
+    "hono-rpc",
+    "hono-client",
+    "hono-api",
+    "tanstack-query",
+    "tanstack",
+    "react-query",
+    "react",
+    "react-hooks",
+    "typescript",
+    "typed-api",
+    "typed-client",
+    "rpc",
+    "api-client",
+    "data-fetching",
+    "query-client",
+    "server-client",
+    "fullstack",
+    "type-safe",
+    "end-to-end-types",
+    "hono-react",
+    "react-data-fetching"
+  ],
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
+  "sideEffects": false,
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    }
+  },
+  "scripts": {
+    "build": "tsup",
+    "build:check": "tsc --project tsconfig.build.json --noEmit",
+    "dev": "tsup --watch",
+    "lint": "eslint src --max-warnings 0",
+    "lint:fix": "eslint src --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:types": "tsc --project tsconfig.test.json --noEmit",
+    "check": "npm run build:check && npm run lint && npm run format:check && npm run test",
+    "publint": "publint",
+    "attw": "attw --pack",
+    "prepack": "npm run build",
+    "prepare": "husky"
+  },
+  "peerDependencies": {
+    "@tanstack/react-query": ">=5.0.0",
+    "hono": ">=4.0.0",
+    "react": ">=18.0.0"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
+  }
+}
