@@ -50,7 +50,7 @@ import type { HcQueryConfig, QueryClientProxy } from './types'
  * import { hc } from 'hono/client'
  * import { HonoReactQuery } from 'hono-tanstack-query'
  * import { queryClient } from './query-client'
- * import type { App } from '@your-org/server'
+ * import type { App } from '@adil6572/server'
  *
  * const hono = hc<App>('http://localhost:3000').api
  *

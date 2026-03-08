@@ -50,7 +50,7 @@ hono-tanstack-query/
 
 ```bash
 # Clone the repo
-git clone https://github.com/your-org/hono-tanstack-query.git
+git clone https://github.com/adil6572/hono-tanstack-query.git
 cd hono-tanstack-query
 
 # Install dependencies

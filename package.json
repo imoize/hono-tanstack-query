@@ -2,15 +2,19 @@
   "name": "hono-tanstack-query",
   "version": "0.1.0",
   "description": "TanStack Query bindings for Hono typed clients — fully typed, zero boilerplate",
-  "author": "Your Name <you@example.com>",
+  "author": "Adil Shaikh <adilshaikh6572@gmail.com> (https://github.com/adil6572)",
   "license": "MIT",
   "homepage": "https://github.com/adil6572/hono-tanstack-query#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/adil6572/hono-tanstack-query.git"
+    "url": "https://github.com/adil6572/hono-tanstack-query.git"
   },
   "bugs": {
     "url": "https://github.com/adil6572/hono-tanstack-query/issues"
+  },
+  "funding": {
+    "type": "github",
+    "url": "https://github.com/sponsors/adil6572"
   },
   "keywords": [
     "hono",
