@@ -1,85 +1,284 @@
-# Contributing
+# Contributing to hono-tanstack-query
 
-## Setup
+Thank you for your interest in contributing! This document covers everything you
+need to get started.
+
+---
+
+## Table of Contents
+
+- [Project Structure](#project-structure)
+- [Development Setup](#development-setup)
+- [Making Changes](#making-changes)
+- [Tests](#tests)
+- [Linting and Formatting](#linting-and-formatting)
+- [Commit Messages](#commit-messages)
+- [Releasing](#releasing)
+- [Opening a Pull Request](#opening-a-pull-request)
+- [Reporting Issues](#reporting-issues)
+
+---
+
+## Project Structure
+
+```
+hono-tanstack-query/
+├── src/
+│   ├── index.ts          # Public exports
+│   ├── types.ts          # All TypeScript types and interfaces
+│   ├── endpoint.ts       # QueryEndpoint implementation (hooks + cache helpers)
+│   ├── proxy.ts          # HonoReactQuery proxy factory
+│   ├── invalidation.ts   # Invalidation strategy logic
+│   ├── key.ts            # Query key builder
+│   └── error.ts          # ApiError class
+├── tests/
+│   ├── endpoint.test.ts  # Hook and cache helper tests
+│   ├── invalidation.test.ts
+│   ├── key.test.ts
+│   └── error.test.ts
+├── tsup.config.ts        # Build config (ESM + CJS + .d.ts)
+├── vitest.config.ts
+├── eslint.config.ts
+└── package.json
+```
+
+---
+
+## Development Setup
+
+**Prerequisites:** Node.js >= 18, pnpm >= 9
 
 ```bash
-# Install deps (pnpm recommended)
+# Clone the repo
+git clone https://github.com/your-org/hono-tanstack-query.git
+cd hono-tanstack-query
+
+# Install dependencies
 pnpm install
 
-# Run tests
+# Run tests to verify everything is working
 pnpm test
-
-# Build
-pnpm build
-
-# Lint + format check
-pnpm check
 ```
 
-## Toolchain
+### Available Scripts
 
-| Tool                  | Purpose                                         | Config file                    |
-| --------------------- | ----------------------------------------------- | ------------------------------ |
-| **tsup**              | Build — dual ESM+CJS output + `.d.ts`           | `tsup.config.ts`               |
-| **typescript-eslint** | Linting with type-aware rules                   | `eslint.config.ts`             |
-| **Prettier**          | Formatting                                      | `prettier.config.ts`           |
-| **Vitest**            | Testing with jsdom                              | `vitest.config.ts`             |
-| **husky**             | Git hooks                                       | `.husky/`                      |
-| **lint-staged**       | Run linter/formatter only on staged files       | `package.json` → `lint-staged` |
-| **Changesets**        | Versioning + changelog                          | `.changeset/`                  |
-| **publint**           | Validates `package.json` exports before publish | `pnpm publint`                 |
-| **attw**              | Checks types work for ESM + CJS consumers       | `pnpm attw`                    |
+| Command           | Description                             |
+| ----------------- | --------------------------------------- |
+| `pnpm build`      | Compile to `dist/` (ESM + CJS + types)  |
+| `pnpm test`       | Run all tests with Vitest               |
+| `pnpm test:watch` | Run tests in watch mode                 |
+| `pnpm lint`       | ESLint check                            |
+| `pnpm lint:fix`   | ESLint with auto-fix                    |
+| `pnpm typecheck`  | Run `tsc --noEmit`                      |
+| `pnpm publint`    | Verify package.json exports are correct |
+| `pnpm attw`       | Check "Are the Types Wrong?"            |
 
-## Scripts
+---
+
+## Making Changes
+
+### Types (`src/types.ts`)
+
+This is the most sensitive file. A few rules:
+
+- `ClientRequestEndpoint` uses `any` intentionally — it is a base constraint
+  type, not a call site. Changing it to `unknown` breaks
+  `InferResponseType<TEndpoint>` because Hono's type machinery matches against
+  the concrete arg type.
+- `InferSuccessType` must filter to 2xx status codes only
+  (`200 | 201 | ... | 206`). Without the filter, error response bodies (e.g.
+  `{ message: string }` from a 404) leak into `data`.
+- Generic defaults on `useQuery`, `useSuspenseQuery`, and `queryOptions`
+  **must** include `= InferSuccessType<TEndpoint>`. Without them, TypeScript
+  resolves `TSelected` to `unknown` when `select` is not provided.
+- `QueryClientProxy` must handle **both** forms of Hono endpoint functions:
+  `(args: R, ...) => ...` (required args, e.g. routes with `param`) and
+  `(args?: R, ...) => ...` (optional args). Both must resolve to
+  `QueryEndpoint<T>`, not recurse as a nested proxy object.
+
+### Endpoint implementation (`src/endpoint.ts`)
+
+- All cache helpers (`getCache`, `setCache`, `invalidate`, etc.) must delegate
+  to `queryClient` — never store state locally.
+- `getCache` must `return queryClient.getQueryData(...)` — an early version
+  omitted the `return`.
+- `queryFn` wraps the Hono client call in `Promise.resolve().catch()` to handle
+  both sync and async throws.
+- Mutation `onSuccess` / `onError` / `onSettled` callbacks follow TanStack v5 —
+  they receive 4 arguments: `(data, variables, context, meta)`.
+
+### Adding a new cache helper or hook method
+
+1. Add the signature to `QueryEndpoint<TEndpoint>` in `src/types.ts`
+2. Implement it in `src/endpoint.ts` inside the `createEndpoint` factory
+3. Add tests in `tests/endpoint.test.ts`
+4. Document it in `README.md`
+
+---
+
+## Tests
+
+Tests use [Vitest](https://vitest.dev/) and run in a Node environment (no
+JSDOM). Hooks are tested by calling `queryFn` and `mutationFn` directly — no
+`renderHook` or `@testing-library/react` required.
 
 ```bash
-pnpm build           # Compile to dist/ (ESM + CJS + .d.ts)
-pnpm build:check     # Type-check src without emitting
-pnpm dev             # Watch mode build
+# Run once
+pnpm test
 
-pnpm lint            # ESLint (0 warnings allowed)
-pnpm lint:fix        # ESLint with auto-fix
-pnpm format          # Prettier write
-pnpm format:check    # Prettier check (used in CI)
+# Watch mode
+pnpm test:watch
 
-pnpm test            # Run tests once
-pnpm test:watch      # Vitest watch mode
-pnpm test:coverage   # Coverage report (enforces thresholds)
-pnpm test:types      # Type-check tests
-
-pnpm check           # build:check + lint + format:check + test (run before PR)
-
-pnpm publint         # Validate package.json exports
-pnpm attw            # Check type resolution for all module systems
+# With coverage
+pnpm test --coverage
 ```
 
-## Making a release
+### Writing tests
 
-1. `pnpm changeset` — describe your change (patch/minor/major)
-2. Commit the generated `.changeset/*.md` file
-3. On merge to `main`, the CI release job runs `pnpm release` which:
-   - Runs `pnpm check` (type check + lint + format + tests)
-   - Validates exports with `publint` and `attw`
-   - Bumps version + updates `CHANGELOG.md`
-   - Publishes to npm
+Tests create a real Hono app and use `hc()` with `app.request` as the `fetch`
+option — this exercises the full type chain end-to-end:
 
-## TypeScript config
+```ts
+import { Hono } from 'hono'
+import { hc } from 'hono/client'
+import { HonoReactQuery } from '../src'
+import { QueryClient } from '@tanstack/react-query'
 
-Three tsconfig files for different contexts:
+const app = new Hono().get('/posts', (c) => c.json([{ id: '1' }], 200))
+const client = hc<typeof app>('http://localhost', { fetch: app.request })
+const queryClient = new QueryClient()
+const api = HonoReactQuery(client, { queryClient })
 
-| File                  | Used by              | Notes                              |
-| --------------------- | -------------------- | ---------------------------------- |
-| `tsconfig.json`       | Editor / IDE         | Base config, `noEmit: true`        |
-| `tsconfig.build.json` | `build:check` script | Checks `src/` only                 |
-| `tsconfig.test.json`  | `test:types`, Vitest | Adds `tests/`, JSX, jest-dom types |
+it('fetches posts', async () => {
+  const queryFn = api.posts.$get.queryOptions().queryFn
+  const data = await queryFn({
+    queryKey: [],
+    signal: new AbortController().signal,
+    meta: undefined,
+  })
+  expect(data).toEqual([{ id: '1' }])
+})
+```
 
-## Code style decisions
+---
 
-- **`import type`** is enforced everywhere — helps tree-shaking and avoids
-  circular issues
-- **`any`** is `warn` not `error` — unavoidable in the Proxy layer; use
-  `// eslint-disable-next-line` with a comment
-- Type parameters must be prefixed with `T` (enforced by
-  `@typescript-eslint/naming-convention`)
-- Interfaces must not be prefixed with `I`
-- No trailing semicolons, single quotes, LF line endings (enforced by Prettier)
+## Linting and Formatting
+
+```bash
+pnpm lint        # Check
+pnpm lint:fix    # Fix
+```
+
+ESLint is configured in `eslint.config.ts`. The most important rules:
+
+- `@typescript-eslint/no-explicit-any` — allowed only in `ClientRequestEndpoint`
+  and `QueryClientProxy`, where `any` is a required base constraint. These are
+  annotated with `// eslint-disable-next-line` comments explaining why.
+- `@typescript-eslint/no-redundant-type-constituents` — union types must not
+  include redundant members.
+
+Prettier is used for formatting via the ESLint Prettier plugin.
+
+---
+
+## Commit Messages
+
+Follow [Conventional Commits](https://www.conventionalcommits.org/):
+
+```
+<type>(<scope>): <short summary>
+```
+
+| Type       | When to use                              |
+| ---------- | ---------------------------------------- |
+| `feat`     | New feature or new public API            |
+| `fix`      | Bug fix                                  |
+| `types`    | Type-only change (no runtime effect)     |
+| `test`     | Adding or fixing tests                   |
+| `docs`     | Documentation only                       |
+| `refactor` | Code change that is not a fix or feature |
+| `chore`    | Tooling, deps, config                    |
+
+Examples:
+
+```
+feat(endpoint): add ensureData helper
+fix(types): add default to TSelected in useQuery
+types(proxy): handle required-args endpoints in QueryClientProxy
+docs: update README cache helpers section
+```
+
+---
+
+## Releasing
+
+This project uses [Changesets](https://github.com/changesets/changesets) for
+versioning and changelog generation.
+
+### Adding a changeset
+
+When your PR includes a user-visible change, add a changeset:
+
+```bash
+pnpm changeset
+```
+
+This opens an interactive prompt. Choose:
+
+- **major** — breaking API change
+- **minor** — new feature, backwards compatible
+- **patch** — bug fix or internal change
+
+The generated `.changeset/*.md` file should be committed with your PR.
+
+### What counts as a breaking change
+
+- Removing or renaming a public export
+- Changing the signature of `HonoReactQuery` in a non-backwards-compatible way
+- Changing the query key structure (would break existing `queryClient` caches)
+- Narrowing or widening types in a way that breaks existing call sites
+
+### Release process (maintainers only)
+
+```bash
+# Consume all pending changesets, bump versions, update CHANGELOG.md
+pnpm changeset version
+
+# Build and publish to npm
+pnpm build && pnpm publish
+```
+
+---
+
+## Opening a Pull Request
+
+1. Fork the repository and create a branch from `main`
+2. Make your changes following the guidelines above
+3. Run `pnpm test`, `pnpm lint`, and `pnpm typecheck` — all must pass
+4. Add a changeset if your change is user-visible (`pnpm changeset`)
+5. Open a PR with a clear description of what changed and why
+6. Link any related issues
+
+### PR checklist
+
+- [ ] Tests pass (`pnpm test`)
+- [ ] No lint errors (`pnpm lint`)
+- [ ] No type errors (`pnpm typecheck`)
+- [ ] Changeset added if needed (`pnpm changeset`)
+- [ ] README updated if public API changed
+
+---
+
+## Reporting Issues
+
+Please include:
+
+- Your `hono-tanstack-query`, `hono`, and `@tanstack/react-query` versions
+- A minimal reproduction — ideally a TypeScript snippet that demonstrates the
+  issue
+- Expected vs actual behavior
+- Any relevant TypeScript error messages (the full error including the type
+  output)
+
+Type inference issues are especially welcome — please include the inferred type
+you're seeing vs what you expected.
