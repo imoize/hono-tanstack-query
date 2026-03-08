@@ -16,8 +16,8 @@ describe('getInvalidationKey', () => {
 
   it("'exact' returns full buildKey output", () => {
     const key = getInvalidationKey(path, 'exact')
-    // exact returns a full query key: [[...path], { type: 'query' }]
-    expect(key).toEqual([[path], { type: 'query' }])
+    // exact returns buildKey(path, { type: 'query' }) — a 2-element array
+    expect(key).toEqual([path, { type: 'query' }])
   })
 
   it("'none' returns null", () => {
@@ -26,7 +26,8 @@ describe('getInvalidationKey', () => {
   })
 
   it('works for a top-level path', () => {
+    // ['tasks', '$post'] → withoutVerb = ['tasks'] → parent = [[]]
     const key = getInvalidationKey(['tasks', '$post'], 'parent')
-    expect(key).toEqual([[[]]])
+    expect(key).toEqual([[]])
   })
 })

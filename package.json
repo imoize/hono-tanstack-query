@@ -1,44 +1,27 @@
 {
   "name": "hono-tanstack-query",
-  "version": "0.0.2",
+  "version": "0.1.0",
   "description": "TanStack Query bindings for Hono typed clients — fully typed, zero boilerplate",
-  "author": "Aadil Shaikh [adilshaikh6572@gmail.com](mailto:adilshaikh6572@gmail.com)",
+  "author": "Your Name <you@example.com>",
   "license": "MIT",
-  "homepage": "https://github.com/adil6572/hono-tanstack-query#readme",
+  "homepage": "https://github.com/your-org/hono-tanstack-query#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/adil6572/hono-tanstack-query.git"
+    "url": "git+https://github.com/your-org/hono-tanstack-query.git"
   },
   "bugs": {
-    "url": "https://github.com/adil6572/hono-tanstack-query/issues"
+    "url": "https://github.com/your-org/hono-tanstack-query/issues"
   },
   "keywords": [
     "hono",
-    "hono-rpc",
-    "hono-client",
-    "hono-api",
     "tanstack-query",
-    "tanstack",
     "react-query",
-    "react",
-    "react-hooks",
     "typescript",
-    "typed-api",
-    "typed-client",
-    "rpc",
-    "api-client",
-    "data-fetching",
-    "query-client",
-    "server-client",
-    "fullstack",
-    "type-safe",
-    "end-to-end-types",
-    "hono-react",
-    "react-data-fetching"
+    "rpc"
   ],
   "type": "module",
   "engines": {
-    "node": ">=18"
+    "node": ">=18.0.0"
   },
   "sideEffects": false,
   "files": [
@@ -77,6 +60,7 @@
     "publint": "publint",
     "attw": "attw --pack",
     "prepack": "npm run build",
+    "release": "npm run check && npm run publint && npm run attw && changeset publish",
     "prepare": "husky"
   },
   "peerDependencies": {
@@ -88,5 +72,37 @@
     "react": {
       "optional": true
     }
+  },
+  "devDependencies": {
+    "@arethetypeswrong/cli": "^0.17.0",
+    "@changesets/cli": "^2.27.0",
+    "@tanstack/react-query": "^5.90.0",
+    "@types/node": "^22.0.0",
+    "@types/react": "^18.3.0",
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "@vitest/coverage-v8": "^2.0.0",
+    "eslint": "^9.0.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-react-hooks": "^5.0.0",
+    "hono": "^4.6.0",
+    "husky": "^9.0.0",
+    "jiti": "^2.6.1",
+    "lint-staged": "^15.2.0",
+    "prettier": "^3.3.0",
+    "publint": "^0.2.12",
+    "react": "^18.3.0",
+    "tsup": "^8.3.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.0.0"
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "eslint --max-warnings 0 --fix",
+      "prettier --write"
+    ],
+    "*.{json,md,yml,yaml}": [
+      "prettier --write"
+    ]
   }
 }

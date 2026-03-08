@@ -3,8 +3,9 @@ import { defineConfig } from 'vitest/config'
 export default defineConfig({
   test: {
     // ── Environment ────────────────────────────────────────────────────────
-    // jsdom simulates the browser DOM needed for React hooks
-    environment: 'jsdom',
+    // node environment — tests call queryFn/mutationFn directly, no DOM needed.
+    // Switch to 'jsdom' if you add renderHook tests in future.
+    environment: 'node',
 
     // ── Globals ────────────────────────────────────────────────────────────
     // Enables describe/it/expect without importing — matches Jest API

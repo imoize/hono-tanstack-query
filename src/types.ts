@@ -24,7 +24,15 @@ import type { InvalidationStrategy } from './invalidation'
 // Matches what hc<AppType>() produces for every route method.
 // `args` is the flat input object { param?, query?, json?, form?, header?, cookie? }
 // `options` is ClientRequestOptions (fetch overrides, signal, etc.)
-export type ClientRequestEndpoint = (args?: any, options?: ClientRequestOptions) => Promise<any>
+// ─── Endpoint signature ───────────────────────────────────────────────────────
+// Must match BOTH forms Hono's hc() produces:
+//   (args?: R, options?: ...) => Promise<ClientResponse<...>>  ← optional args (no required keys)
+//   (args: R,  options?: ...) => Promise<ClientResponse<...>>  ← required args (has required keys)
+// Using `any` here is intentional — this is a base constraint type only.
+// Changing to `unknown` breaks InferResponseType<TEndpoint> because Hono's
+// InferEndpointType<T> matches against the concrete arg type, not unknown.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type ClientRequestEndpoint = (args: any, options?: ClientRequestOptions) => Promise<any>
 
 // ─── Re-export Hono's own InferRequestType ────────────────────────────────────
 // InferRequestType<TEndpoint> extracts the `args` shape directly from the
@@ -32,11 +40,11 @@ export type ClientRequestEndpoint = (args?: any, options?: ClientRequestOptions)
 export type { InferRequestType }
 
 // ─── Success body — what goes into TanStack `data` ───────────────────────────
-// InferResponseType<TEndpoint> gives the union of ALL response bodies.
-// InferResponseType<TEndpoint, 200> narrows to a specific status.
-// We use the full union here; endpoint.ts calls resolveResponse which throws
-// ApiError on non-2xx so at runtime `data` is always the success body.
-export type InferSuccessType<TEndpoint extends ClientRequestEndpoint> = InferResponseType<TEndpoint>
+// ─── Success body — what goes into TanStack `data` ───────────────────────────
+// Narrowed to 2xx only — error bodies like { message: string } from 404/422
+// are excluded. Non-2xx responses are thrown as ApiError at runtime anyway.
+export type InferSuccessType<TEndpoint extends ClientRequestEndpoint> =
+  InferResponseType<TEndpoint, 200 | 201 | 202 | 203 | 204 | 205 | 206>
 
 // ─── Error body — what goes into ApiError<TBody>.body ────────────────────────
 // We derive this by excluding the 2xx response type from the full union.
@@ -74,7 +82,7 @@ interface HonoInput {
 
 // Whether the endpoint needs any input at all
 type NeedsInput<TEndpoint extends ClientRequestEndpoint> =
-  // eslint-disable-next-line @typescript-eslint/no-empty-object-type
+
   {} extends InferRequestType<TEndpoint> ? false : true
 
 // ─── TanStack options split ───────────────────────────────────────────────────
@@ -144,9 +152,7 @@ export type FlatInfiniteQueryArgs<
   UseInfiniteQueryOptions<
     InferSuccessType<TEndpoint>,
     EndpointApiError<TEndpoint>,
-    TSelected,
-    QueryKey,
-    PageParam
+    TSelected
   >,
   'queryKey' | 'queryFn'
 > &
@@ -163,9 +169,7 @@ export type FlatSuspenseInfiniteQueryArgs<
   UseSuspenseInfiniteQueryOptions<
     InferSuccessType<TEndpoint>,
     EndpointApiError<TEndpoint>,
-    TSelected,
-    QueryKey,
-    PageParam
+    TSelected
   >,
   'queryKey' | 'queryFn'
 > &
@@ -189,7 +193,7 @@ export type TypedInfiniteQueryOptions<
   TData,
   TError,
   TSelected = InfiniteData<TData>,
-> = UseInfiniteQueryOptions<TData, TError, TSelected, QueryKey, PageParam> & {
+> = UseInfiniteQueryOptions<TData, TError, TSelected> & {
   queryKey: QueryKey
   queryFn: (opts: QueryFunctionContext<QueryKey, PageParam>) => Promise<TData>
   getNextPageParam: GetNextPageParamFunction<PageParam, TData>
@@ -242,7 +246,7 @@ export interface QueryEndpoint<TEndpoint extends ClientRequestEndpoint> {
    *   // Custom hook composition
    *   return useQuery({ ...api.users.$get.queryOptions(), placeholderData: keepPreviousData })
    */
-  queryOptions<TSelected>(
+  queryOptions<TSelected = InferSuccessType<TEndpoint>>(
     args?: FlatQueryArgs<TEndpoint, TSelected>,
   ): TypedQueryOptions<InferSuccessType<TEndpoint>, EndpointApiError<TEndpoint>, TSelected>
 
@@ -282,12 +286,12 @@ export interface QueryEndpoint<TEndpoint extends ClientRequestEndpoint> {
    *     select: (d) => d.name,   // ← data typed as string, not full object
    *   })
    */
-  useQuery<TSelected>(
+  useQuery<TSelected = InferSuccessType<TEndpoint>>(
     args?: FlatQueryArgs<TEndpoint, TSelected>,
   ): UseQueryResult<TSelected, EndpointApiError<TEndpoint>>
 
   /** Suspense variant — wrap with <Suspense>, no isLoading needed */
-  useSuspenseQuery<TSelected>(
+  useSuspenseQuery<TSelected = InferSuccessType<TEndpoint>>(
     args?: FlatSuspenseQueryArgs<TEndpoint, TSelected>,
   ): UseSuspenseQueryResult<TSelected, EndpointApiError<TEndpoint>>
 
@@ -374,12 +378,20 @@ export interface QueryEndpoint<TEndpoint extends ClientRequestEndpoint> {
 }
 
 // ─── Recursive proxy type ─────────────────────────────────────────────────────
+// ─── Recursive proxy type ─────────────────────────────────────────────────────
+// Hono endpoints come in two forms:
+//   (args?: R, ...) — optional args (no required input keys)
+//   (args: R,  ...) — required args (has required input keys e.g. param)
+// Both must match ClientRequestEndpoint so they get wrapped as QueryEndpoint
+// rather than recursed into as a nested object.
 export type QueryClientProxy<T> = {
   [K in keyof T]: T[K] extends ClientRequestEndpoint
-    ? QueryEndpoint<T[K]>
-    : T[K] extends object
-      ? QueryClientProxy<T[K]>
-      : T[K]
+  ? QueryEndpoint<T[K]>
+  : T[K] extends (args?: any, options?: any) => Promise<any> // eslint-disable-line @typescript-eslint/no-explicit-any
+  ? QueryEndpoint<T[K]>
+  : T[K] extends object
+  ? QueryClientProxy<T[K]>
+  : T[K]
 }
 
 // ─── Config ───────────────────────────────────────────────────────────────────

@@ -93,7 +93,7 @@ export function createEndpoint<TEndpoint extends ClientRequestEndpoint>(
       try {
         const resolvedInput =
           infinite && pageParam !== undefined ? mergePageParam(input, pageParam) : input
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+
         const res = (await endpoint(resolvedInput, { init: { signal } })) as HonoResponse
         return await resolveResponse<TData>(res)
       } catch (err) {
@@ -192,7 +192,7 @@ export function createEndpoint<TEndpoint extends ClientRequestEndpoint>(
         invalidate?: InvalidationStrategy | QueryKey[]
         onSuccess?: (...a: unknown[]) => Promise<void> | void
         onError?: (err: TError, ...a: unknown[]) => void
-        onMutate?: (variables: TVariables) => Promise<unknown> | unknown
+        onMutate?: (variables: TVariables) => Promise<unknown> | void
         onSettled?: (...a: unknown[]) => Promise<void> | void
         [key: string]: unknown
       }
@@ -203,7 +203,7 @@ export function createEndpoint<TEndpoint extends ClientRequestEndpoint>(
 
         mutationFn: async (variables: TVariables): Promise<TData> => {
           try {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+
             const res = (await endpoint(variables)) as HonoResponse
             return await resolveResponse<TData>(res)
           } catch (err) {
@@ -219,20 +219,20 @@ export function createEndpoint<TEndpoint extends ClientRequestEndpoint>(
           return Promise.resolve(userOnMutate?.(variables))
         },
 
-        onSuccess: async (data, variables, context) => {
+        onSuccess: async (data, variables, context, meta) => {
           await runInvalidation(invalidate)
           onSuccess?.(data)
-          await userOnSuccess?.(data, variables, context)
+          await userOnSuccess?.(data, variables, context, meta)
         },
 
-        onError: (err, variables, context) => {
+        onError: (err, variables, context, meta) => {
           onError?.(err as ApiError)
-          userOnError?.(err, variables, context)
+          userOnError?.(err, variables, context, meta)
         },
 
         // onSettled always runs (success or error) — void return is intentional
-        onSettled: (data, err, variables, context) => {
-          void userOnSettled?.(data, err, variables, context)
+        onSettled: (data, err, variables, context, meta) => {
+          void userOnSettled?.(data, err, variables, context, meta)
         },
       }
     },
