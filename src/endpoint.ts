@@ -52,16 +52,24 @@ function splitArgs<TArgs extends Record<string, unknown>>(
 interface HonoResponse {
   ok: boolean
   status: number
+  headers: Headers
   json(): Promise<unknown>
+  text(): Promise<string>
 }
 
 // ─── Internal: resolve Hono response → typed data or throw ApiError ───────────
 // Awaiting json() then checking ok keeps the stack frame for error handling
 // and matches how Hono's ClientResponse actually works at runtime.
+// Checks res.ok and content-type BEFORE calling .json() so non-JSON error
+// responses (e.g. text/plain, proxy errors) surface as a
+// proper ApiError instead of a confusing SyntaxError.
 async function resolveResponse<TData>(res: HonoResponse): Promise<TData> {
-  const body = await res.json()
-  if (!res.ok) throw new ApiError(res.status, body)
-  return body as TData
+  if (!res.ok) {
+    const contentType = res.headers.get('content-type') ?? ''
+    const body = contentType.includes('application/json') ? await res.json() : await res.text()
+    throw new ApiError(res.status, body)
+  }
+  return (await res.json()) as TData
 }
 
 // ─── createEndpoint ───────────────────────────────────────────────────────────
@@ -203,7 +211,6 @@ export function createEndpoint<TEndpoint extends ClientRequestEndpoint>(
 
         mutationFn: async (variables: TVariables): Promise<TData> => {
           try {
-
             const res = (await endpoint(variables)) as HonoResponse
             return await resolveResponse<TData>(res)
           } catch (err) {

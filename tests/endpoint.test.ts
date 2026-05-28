@@ -35,6 +35,9 @@ function buildApp() {
         200,
       ),
     )
+    .get('/tasks/text', (c) => {
+      return c.text('Service unavailable.', 503)
+    })
     .get('/tasks/:id', (c) => {
       const id = c.req.param('id')
       if (id === '404') return c.json({ message: 'Not found' }, 404)
@@ -137,6 +140,42 @@ describe('createEndpoint — queryOptions', () => {
     const a = ep.queryOptions({ param: { id: '1' } }).queryKey
     const b = ep.queryOptions({ param: { id: '2' } }).queryKey
     expect(a).not.toEqual(b)
+  })
+
+  it('queryFn throws ApiError (not SyntaxError) on text/plain error response', async () => {
+    const ep = createEndpoint(client.tasks.text.$get, ['tasks', 'text', '$get'], makeConfig(qc))
+    const opts = ep.queryOptions()
+
+    const err = await Promise.resolve(
+      opts.queryFn({ signal: new AbortController().signal } as any),
+    ).catch((e: unknown) => e)
+
+    // Must be ApiError, not a raw SyntaxError from failed JSON parse
+    expect(err).toBeInstanceOf(ApiError)
+    expect((err as ApiError).status).toBe(503)
+    expect((err as ApiError).isServerError()).toBe(true)
+    // Body should be the raw text content, not parsed JSON
+    expect((err as ApiError).body).toContain('Service unavailable.')
+  })
+
+  it('global onError fires with ApiError on non-JSON error response', async () => {
+    const onError = vi.fn()
+    const ep = createEndpoint(
+      client.tasks.text.$get,
+      ['tasks', 'text', '$get'],
+      makeConfig(qc, { onError }),
+    )
+    const opts = ep.queryOptions()
+
+    await Promise.resolve(opts.queryFn({ signal: new AbortController().signal } as any)).catch(
+      () => {},
+    )
+
+    expect(onError).toHaveBeenCalledTimes(1)
+    const err = onError.mock.calls[0][0] as ApiError
+    expect(err).toBeInstanceOf(ApiError)
+    expect(err.status).toBe(503)
+    expect(err.body).toContain('Service unavailable.')
   })
 })
 
